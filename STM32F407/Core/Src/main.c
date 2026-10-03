@@ -23,7 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "esc.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -33,7 +33,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define THROTTLE_STEP_PERCENT   5U    /* moi lan bam nut tang 5% */
+#define THROTTLE_MAX_PERCENT    100U   /* gioi han khi test, vuot qua thi ve 0 */
+#define BUTTON_DEBOUNCE_MS      30U
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -44,7 +46,7 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+static ESC_Handle esc;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -89,7 +91,15 @@ int main(void)
   MX_GPIO_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+  if (ESC_Init(&esc, &htim3, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  ESC_Arm(&esc);
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12, GPIO_PIN_SET);   /* LED sang: da arm */
 
+  uint8_t throttle = 0;
+  GPIO_PinState last_button = GPIO_PIN_RESET;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -99,6 +109,24 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    /* Nut User (PA0) tich cuc muc cao: moi lan bam tang ga mot nac */
+    GPIO_PinState button = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0);
+    if (button != last_button)
+    {
+      HAL_Delay(BUTTON_DEBOUNCE_MS);
+      button = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0);
+      if (button == GPIO_PIN_SET && last_button == GPIO_PIN_RESET)
+      {
+        throttle += THROTTLE_STEP_PERCENT;
+        if (throttle > THROTTLE_MAX_PERCENT)
+        {
+          throttle = 0;
+        }
+        ESC_SetThrottle(&esc, throttle);
+      }
+      last_button = button;
+    }
+  }
   /* USER CODE END 3 */
 }
 
